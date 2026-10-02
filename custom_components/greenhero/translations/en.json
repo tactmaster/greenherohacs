@@ -1,0 +1,20 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Green Hero",
+        "description": "Paste the refresh_token from a logged-in Green Hero web session (DevTools → Network → login.greenhero.com/oauth/token response → refresh_token).",
+        "data": { "refresh_token": "Refresh token" }
+      }
+    },
+    "error": { "invalid_auth": "Could not get a token from that refresh token." },
+    "abort": { "already_configured": "Green Hero is already configured." }
+  },
+  "entity": {
+    "sensor": {
+      "battery_soc": { "name": "Battery charge" },
+      "battery_power": { "name": "Battery power" },
+      "spot_price_now": { "name": "Spot price now" }
+    }
+  }
+}

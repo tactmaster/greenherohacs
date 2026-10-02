@@ -1,0 +1,11 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Secrets / local tokens - NEVER commit
+cred
+refresh_token.txt
+*.token
+.env

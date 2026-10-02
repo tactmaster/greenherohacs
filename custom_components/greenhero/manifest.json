@@ -1,0 +1,11 @@
+{
+  "domain": "greenhero",
+  "name": "Green Hero",
+  "codeowners": ["@tactmaster"],
+  "config_flow": true,
+  "documentation": "https://github.com/tactmaster/greenherohacs",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/tactmaster/greenherohacs/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}
