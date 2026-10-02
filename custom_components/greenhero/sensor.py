@@ -1,6 +1,7 @@
 """Green Hero sensors."""
 from __future__ import annotations
 
+import datetime as dt
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -12,67 +13,69 @@ from homeassistant.components.sensor import (
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import PERCENTAGE, UnitOfPower
+from homeassistant.const import PERCENTAGE, UnitOfEnergy, UnitOfPower
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from . import prices
+from .const import CURRENCY, DOMAIN, PRICE_UNIT
 from .coordinator import GreenHeroCoordinator
 
 
-def _iter_prices(data: dict[str, Any]):
-    """Yield (datetime, value) from the spot-prices payload, any known shape."""
-    import datetime as dt
-
-    sp = data.get("spot_prices") or {}
-    prices = sp.get("prices") or sp.get("values") or []
-    for item in prices:
-        ts = val = None
-        if isinstance(item, (list, tuple)) and len(item) >= 2:
-            ts, val = item[0], item[1]
-        elif isinstance(item, dict):
-            ts = item.get("timestamp") or item.get("start") or item.get("time")
-            val = item.get("value") if item.get("value") is not None else item.get("price")
-        if ts is None or val is None:
-            continue
-        try:
-            t = dt.datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
-            yield t, float(val)
-        except (ValueError, TypeError):
-            continue
-
-
-def _current_spot_price(data: dict[str, Any]) -> float | None:
-    """Pick the price for the current hour from the spot-prices payload."""
-    import datetime as dt
-
-    now = dt.datetime.now().astimezone()
-    best = None
-    for t, val in _iter_prices(data):
-        if t.tzinfo is None:
-            t = t.astimezone()
-        if t <= now and (best is None or t > best[0]):
-            best = (t, val)
-    return best[1] if best else None
+def _overview_total(payload: Any) -> float | None:
+    """Pull the period total from an overview payload (shape-tolerant)."""
+    if payload is None:
+        return None
+    if isinstance(payload, (int, float)):
+        return float(payload)
+    if isinstance(payload, dict):
+        total = payload.get("total")
+        if isinstance(total, (int, float)):
+            return float(total)
+        if isinstance(total, dict):
+            for k in ("value", "amount", "total", "sum"):
+                if isinstance(total.get(k), (int, float)):
+                    return float(total[k])
+        # fall back to summing interval values
+        intervals = payload.get("intervals") or payload.get("months") or []
+        vals = []
+        for it in intervals:
+            if isinstance(it, dict):
+                for k in ("value", "total", "amount"):
+                    if isinstance(it.get(k), (int, float)):
+                        vals.append(float(it[k]))
+                        break
+        if vals:
+            return round(sum(vals), 4)
+    return None
 
 
-def _spot_price_attrs(data: dict[str, Any]) -> dict[str, Any]:
-    sp = data.get("spot_prices") or {}
-    vals = [v for _, v in _iter_prices(data)]
-    attrs: dict[str, Any] = {}
-    if "average" in sp:
-        attrs["average"] = sp["average"]
-    if "min" in sp:
-        attrs["min"] = sp["min"]
-    if "max" in sp:
-        attrs["max"] = sp["max"]
-    if vals and "average" not in attrs:
-        attrs["min"] = min(vals)
-        attrs["max"] = max(vals)
-        attrs["average"] = round(sum(vals) / len(vals), 4)
-    attrs["count"] = len(vals)
+def _cheapest_price(d: dict) -> float | None:
+    r = prices.cheapest_today(d)
+    return round(r[1], 4) if r else None
+
+
+def _cheapest_time(d: dict) -> dt.datetime | None:
+    r = prices.cheapest_today(d)
+    return r[0] if r else None
+
+
+def _peak_price(d: dict) -> float | None:
+    r = prices.peak_today(d)
+    return round(r[1], 4) if r else None
+
+
+def _spot_now(d: dict) -> float | None:
+    v = prices.current_price(d)
+    return round(v, 4) if v is not None else None
+
+
+def _spot_attrs(d: dict) -> dict[str, Any]:
+    attrs: dict[str, Any] = dict(prices.stats_today(d))
+    attrs["prices_today"] = prices.day_rows(d, 0)
+    attrs["prices_tomorrow"] = prices.day_rows(d, 1)
     return attrs
 
 
@@ -83,42 +86,88 @@ class GreenHeroSensorDescription(SensorEntityDescription):
 
 
 SENSORS: tuple[GreenHeroSensorDescription, ...] = (
+    # --- battery ---
     GreenHeroSensorDescription(
-        key="battery_soc",
-        translation_key="battery_soc",
+        key="battery_soc", translation_key="battery_soc",
         native_unit_of_measurement=PERCENTAGE,
         device_class=SensorDeviceClass.BATTERY,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: (d.get("battery") or {}).get("soc"),
     ),
     GreenHeroSensorDescription(
-        key="battery_power",
-        translation_key="battery_power",
+        key="battery_power", translation_key="battery_power",
         native_unit_of_measurement=UnitOfPower.KILO_WATT,
         device_class=SensorDeviceClass.POWER,
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=lambda d: (d.get("battery") or {}).get("power"),
     ),
+    # --- spot price (incl. future via attributes) ---
     GreenHeroSensorDescription(
-        key="spot_price_now",
-        translation_key="spot_price_now",
-        native_unit_of_measurement="SEK/kWh",
+        key="spot_price_now", translation_key="spot_price_now",
+        native_unit_of_measurement=PRICE_UNIT,
         state_class=SensorStateClass.MEASUREMENT,
-        value_fn=_current_spot_price,
-        attrs_fn=_spot_price_attrs,
+        value_fn=_spot_now, attrs_fn=_spot_attrs,
+    ),
+    GreenHeroSensorDescription(
+        key="spot_price_cheapest", translation_key="spot_price_cheapest",
+        native_unit_of_measurement=PRICE_UNIT,
+        value_fn=_cheapest_price,
+    ),
+    GreenHeroSensorDescription(
+        key="spot_price_peak", translation_key="spot_price_peak",
+        native_unit_of_measurement=PRICE_UNIT,
+        value_fn=_peak_price,
+    ),
+    GreenHeroSensorDescription(
+        key="spot_price_cheapest_time", translation_key="spot_price_cheapest_time",
+        device_class=SensorDeviceClass.TIMESTAMP,
+        value_fn=_cheapest_time,
+    ),
+    # --- cost (currency) ---
+    GreenHeroSensorDescription(
+        key="cost_today", translation_key="cost_today",
+        native_unit_of_measurement=CURRENCY,
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        value_fn=lambda d: _overview_total(d.get("cost_day")),
+    ),
+    GreenHeroSensorDescription(
+        key="cost_month", translation_key="cost_month",
+        native_unit_of_measurement=CURRENCY,
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        value_fn=lambda d: _overview_total(d.get("cost_month")),
+    ),
+    GreenHeroSensorDescription(
+        key="cost_year", translation_key="cost_year",
+        native_unit_of_measurement=CURRENCY,
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        value_fn=lambda d: _overview_total(d.get("cost_year")),
+    ),
+    # --- energy (Energy dashboard compatible) ---
+    GreenHeroSensorDescription(
+        key="energy_today", translation_key="energy_today",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda d: _overview_total(d.get("energy_day")),
+    ),
+    GreenHeroSensorDescription(
+        key="energy_lifetime", translation_key="energy_lifetime",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda d: _overview_total(d.get("energy_lifetime")),
     ),
 )
 
 
 async def async_setup_entry(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-    async_add_entities: AddEntitiesCallback,
+    hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     coordinator: GreenHeroCoordinator = entry.runtime_data
-    async_add_entities(
-        GreenHeroSensor(coordinator, desc) for desc in SENSORS
-    )
+    async_add_entities(GreenHeroSensor(coordinator, d) for d in SENSORS)
 
 
 class GreenHeroSensor(CoordinatorEntity[GreenHeroCoordinator], SensorEntity):

@@ -11,7 +11,7 @@ from .auth import AuthError, TokenStore
 from .const import CONF_REFRESH_TOKEN
 from .coordinator import GreenHeroCoordinator
 
-PLATFORMS = ["sensor"]
+PLATFORMS = ["sensor", "binary_sensor"]
 type GreenHeroConfigEntry = ConfigEntry[GreenHeroCoordinator]
 
 

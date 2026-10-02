@@ -21,3 +21,7 @@ AUTH0_AUDIENCE = ""
 
 UPDATE_INTERVAL = timedelta(minutes=5)
 CONF_REFRESH_TOKEN = "refresh_token"
+
+# Units (Swedish market)
+CURRENCY = "SEK"
+PRICE_UNIT = "SEK/kWh"

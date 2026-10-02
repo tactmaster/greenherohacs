@@ -16,9 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class GreenHeroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry, api: GreenHeroApi) -> None:
-        super().__init__(
-            hass, _LOGGER, name=DOMAIN, update_interval=UPDATE_INTERVAL
-        )
+        super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=UPDATE_INTERVAL)
         self.api = api
         self.entry = entry
         self.place_id: str | None = None
@@ -34,25 +32,29 @@ class GreenHeroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             self.electricity_area = db.get("electricity_area")
             self.place_name = db.get("name")
 
+    async def _try(self, data: dict, key: str, coro) -> None:
+        try:
+            data[key] = await coro
+        except GreenHeroApiError as err:
+            _LOGGER.debug("%s unavailable: %s", key, err)
+
     async def _async_update_data(self) -> dict[str, Any]:
         if self.place_id is None:
             await self._async_setup()
         data: dict[str, Any] = {}
-        try:
-            data["battery"] = await self.api.battery_status(self.place_id)
-        except GreenHeroApiError as err:
-            _LOGGER.debug("battery_status unavailable: %s", err)
-            data["battery"] = {}
-        try:
-            if self.electricity_area:
-                data["spot_prices"] = await self.api.spot_prices(self.electricity_area)
-        except GreenHeroApiError as err:
-            _LOGGER.debug("spot_prices unavailable: %s", err)
-        try:
-            if self.place_id:
-                data["overview_day"] = await self.api.overview(self.place_id, "day", "currency")
-        except GreenHeroApiError as err:
-            _LOGGER.debug("overview unavailable: %s", err)
-        if not data.get("battery") and "spot_prices" not in data:
+
+        await self._try(data, "battery", self.api.battery_status(self.place_id))
+        if self.electricity_area:
+            # today + tomorrow prices
+            await self._try(data, "spot_prices", self.api.spot_prices(self.electricity_area))
+        if self.place_id:
+            # cost (currency) and energy for the usual periods
+            await self._try(data, "cost_day", self.api.overview(self.place_id, "day", "currency"))
+            await self._try(data, "cost_month", self.api.overview(self.place_id, "month", "currency"))
+            await self._try(data, "cost_year", self.api.overview(self.place_id, "year", "currency"))
+            await self._try(data, "energy_day", self.api.overview(self.place_id, "day", "energy"))
+            await self._try(data, "energy_lifetime", self.api.overview(self.place_id, "lifetime", "energy"))
+
+        if not data:
             raise UpdateFailed("no data returned from Green Hero")
         return data

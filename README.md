@@ -9,15 +9,54 @@ It reads your data from the same private API the Green Hero web app uses
 > **Unofficial & unsupported.** Not affiliated with or endorsed by Green Hero AB.
 > The API is private and may change or break at any time. Read-only usage only.
 
-## Sensors
+## Entities
 
-| Sensor | Description |
-|---|---|
-| Battery charge | Battery state of charge (%) |
-| Battery power | Battery charge/discharge power (kW) |
-| Spot price now | Nord Pool spot price for the current hour (SEK/kWh) |
+**Battery**
+- Battery charge (%) and Battery power (kW)
 
-More (consumption/cost overview, grid import/export, spot min/max/avg) can be added.
+**Spot price (incl. future)**
+- Spot price now (SEK/kWh) — with `prices_today` / `prices_tomorrow` arrays and
+  `min` / `max` / `average` as attributes (the day-ahead prices live here)
+- Cheapest / peak price today, and Cheapest hour today (a timestamp)
+- `binary_sensor` **Electricity cheap now** — on when the current price is at or
+  below today's average (handy for charging automations)
+
+**Cost & energy** (from `/v0/overview`)
+- Cost today / this month / this year (SEK)
+- Energy today and Energy lifetime (kWh) — `total_increasing`, so they can be
+  added to the native **Energy dashboard**
+
+> Cost/energy field mapping is provisional until verified against a live
+> `/v0/overview` response; unexpected shapes show as *Unknown* rather than erroring.
+
+## Showing future (day-ahead) prices
+
+Core Home Assistant history only plots the past, so day-ahead prices are exposed
+as **attributes** on `sensor.green_hero_spot_price_now` and plotted with the
+[ApexCharts card](https://github.com/RomRider/apexcharts-card) (HACS):
+
+```yaml
+type: custom:apexcharts-card
+graph_span: 48h
+span:
+  start: day
+now:
+  show: true
+  label: Now
+header:
+  show: true
+  title: Spot price (today + tomorrow)
+series:
+  - entity: sensor.green_hero_spot_price_now
+    name: Price
+    type: column
+    data_generator: |
+      const t = entity.attributes.prices_today || [];
+      const m = entity.attributes.prices_tomorrow || [];
+      return [...t, ...m].map(p => [new Date(p.start).getTime(), p.price]);
+```
+
+Adjust the entity id to match your install.
 
 ## Installation (HACS custom repository)
 
