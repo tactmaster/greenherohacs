@@ -66,10 +66,15 @@ class GreenHeroClient:
         return self.get(f"/v0/overview/{mode}",
                         place_id=place_id, quantity=quantity, date=date)
 
-    def spot_prices(self, electricity_area, from_date, to_date,
+    def spot_prices(self, electricity_area, from_date=None, to_date=None,
                     interval=60, time_zone="Europe/Stockholm"):
-        return self.get("/v0/spot-prices", from_date=from_date, to_date=to_date,
-                        interval=interval, electricity_area=electricity_area)
+        import datetime as _dt
+        today = _dt.date.today()
+        return self.get(
+            "/v0/spot-prices",
+            from_date=from_date or today.isoformat(),
+            to_date=to_date or (today + _dt.timedelta(days=1)).isoformat(),
+            interval=interval, electricity_area=electricity_area)
 
     def battery_status(self, place_id=None):
         return self.get("/v0/battery-status", **({"place_id": place_id} if place_id else {}))

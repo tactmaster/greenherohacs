@@ -22,28 +22,64 @@ from .const import DOMAIN
 from .coordinator import GreenHeroCoordinator
 
 
+def _iter_prices(data: dict[str, Any]):
+    """Yield (datetime, value) from the spot-prices payload, any known shape."""
+    import datetime as dt
+
+    sp = data.get("spot_prices") or {}
+    prices = sp.get("prices") or sp.get("values") or []
+    for item in prices:
+        ts = val = None
+        if isinstance(item, (list, tuple)) and len(item) >= 2:
+            ts, val = item[0], item[1]
+        elif isinstance(item, dict):
+            ts = item.get("timestamp") or item.get("start") or item.get("time")
+            val = item.get("value") if item.get("value") is not None else item.get("price")
+        if ts is None or val is None:
+            continue
+        try:
+            t = dt.datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+            yield t, float(val)
+        except (ValueError, TypeError):
+            continue
+
+
 def _current_spot_price(data: dict[str, Any]) -> float | None:
     """Pick the price for the current hour from the spot-prices payload."""
     import datetime as dt
 
-    prices = (data.get("spot_prices") or {}).get("prices") or []
     now = dt.datetime.now().astimezone()
     best = None
-    for item in prices:
-        # bundle shape: [timestamp, value]
-        try:
-            ts, val = item[0], item[1]
-            t = dt.datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
-        except (ValueError, IndexError, TypeError):
-            continue
+    for t, val in _iter_prices(data):
+        if t.tzinfo is None:
+            t = t.astimezone()
         if t <= now and (best is None or t > best[0]):
             best = (t, val)
     return best[1] if best else None
 
 
+def _spot_price_attrs(data: dict[str, Any]) -> dict[str, Any]:
+    sp = data.get("spot_prices") or {}
+    vals = [v for _, v in _iter_prices(data)]
+    attrs: dict[str, Any] = {}
+    if "average" in sp:
+        attrs["average"] = sp["average"]
+    if "min" in sp:
+        attrs["min"] = sp["min"]
+    if "max" in sp:
+        attrs["max"] = sp["max"]
+    if vals and "average" not in attrs:
+        attrs["min"] = min(vals)
+        attrs["max"] = max(vals)
+        attrs["average"] = round(sum(vals) / len(vals), 4)
+    attrs["count"] = len(vals)
+    return attrs
+
+
 @dataclass(frozen=True, kw_only=True)
 class GreenHeroSensorDescription(SensorEntityDescription):
     value_fn: Callable[[dict[str, Any]], Any]
+    attrs_fn: Callable[[dict[str, Any]], dict[str, Any]] | None = None
 
 
 SENSORS: tuple[GreenHeroSensorDescription, ...] = (
@@ -69,6 +105,7 @@ SENSORS: tuple[GreenHeroSensorDescription, ...] = (
         native_unit_of_measurement="SEK/kWh",
         state_class=SensorStateClass.MEASUREMENT,
         value_fn=_current_spot_price,
+        attrs_fn=_spot_price_attrs,
     ),
 )
 
@@ -103,3 +140,9 @@ class GreenHeroSensor(CoordinatorEntity[GreenHeroCoordinator], SensorEntity):
     @property
     def native_value(self) -> Any:
         return self.entity_description.value_fn(self.coordinator.data)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        if self.entity_description.attrs_fn is None:
+            return None
+        return self.entity_description.attrs_fn(self.coordinator.data)

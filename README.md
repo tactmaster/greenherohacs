@@ -28,38 +28,36 @@ More (consumption/cost overview, grid import/export, spot min/max/avg) can be ad
 
 ## Authentication
 
-Green Hero logs in through Auth0. This integration authenticates with a
-**refresh token** that you obtain once from a logged-in browser session; Home
-Assistant then mints short-lived access tokens from it automatically (the
-refresh token rotates on each use and the integration stores the latest one).
+Green Hero logs in through Auth0. When you add the integration you get two options:
 
-### Getting your refresh token
+### Log in with browser (recommended)
 
-1. Log in at [app.greenhero.com](https://app.greenhero.com).
-2. Open the browser console (F12 → Console) and run:
+1. The setup dialog shows a **Sign in to Green Hero** link. Open it and sign in
+   (Google works).
+2. You'll be redirected to `app.greenhero.com` with `?code=...` in the URL. The
+   page may show an error — that's expected and harmless.
+3. Copy the **full URL** from the address bar and paste it into the dialog.
 
-   ```js
-   Object.keys(localStorage)
-     .filter(k => k.startsWith('@@auth0spajs@@'))
-     .forEach(k => {
-       try { console.log(JSON.parse(localStorage.getItem(k)).body?.refresh_token); }
-       catch (e) {}
-     });
-   ```
+Home Assistant exchanges that code for its **own** refresh token (a separate
+token family from the web/phone apps), then mints short-lived access tokens from
+it automatically and rotates it in the background. You log in once.
 
-   If it prints a value, that's your refresh token.
-3. If it prints nothing, use the **Network** tab instead: find the
-   `POST login.greenhero.com/oauth/token` request and copy `refresh_token`
-   from its JSON **response**.
-4. Paste it into the integration's setup dialog.
+This flow uses its own PKCE `state`, so the Green Hero web app cannot consume the
+authorization code — it stays valid for Home Assistant.
 
-> Note: using the refresh token in Home Assistant may log the **web** app out on
-> its next token refresh (token rotation). The mobile app is unaffected.
+### Paste a refresh token (advanced)
+
+Pull the `refresh_token` from a logged-in web session (browser console, the
+`@@auth0spajs@@` localStorage entry) and paste it. **Caveat:** refresh tokens
+rotate and are single-use. If the web app keeps running it will rotate the shared
+token and break Home Assistant, so prefer the browser login above. Do **not**
+run the `tools/` scripts with a token you also give Home Assistant — that
+consumes it.
 
 ## Development helpers
 
 The `tools/` directory contains standalone scripts used to explore the API
-(no Home Assistant required): `client.py`, `try_it.py`, `refresh_login.py`,
+(no Home Assistant required): `client.py`, `try_it.py`, `pkce_login.py`, `refresh_login.py`,
 `device_login.py`. They use only the public Auth0 client id.
 
 ## Disclaimer

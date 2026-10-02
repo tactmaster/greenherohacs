@@ -3,11 +3,28 @@
     "step": {
       "user": {
         "title": "Green Hero",
-        "description": "Paste the refresh_token from a logged-in Green Hero web session (DevTools → Network → login.greenhero.com/oauth/token response → refresh_token).",
+        "description": "Choose how to connect your Green Hero account.",
+        "menu_options": {
+          "browser": "Log in with browser (recommended)",
+          "refresh_token": "Paste a refresh token (advanced)"
+        }
+      },
+      "browser": {
+        "title": "Log in to Green Hero",
+        "description": "1. Open this link and sign in:\n\n[Sign in to Green Hero]({url})\n\n2. After signing in you'll land on a Green Hero page that may show an error — that's expected.\n3. Copy the **full URL** from your browser's address bar (it contains `?code=...`) and paste it below.",
+        "data": { "result": "Pasted URL (or code)" }
+      },
+      "refresh_token": {
+        "title": "Green Hero refresh token",
+        "description": "Paste a refresh_token from a logged-in Green Hero web session (browser console: read the `@@auth0spajs@@` localStorage entry).",
         "data": { "refresh_token": "Refresh token" }
       }
     },
-    "error": { "invalid_auth": "Could not get a token from that refresh token." },
+    "error": {
+      "invalid_auth": "Could not authenticate with that value. Try the login link again.",
+      "invalid_code": "Couldn't find a code in what you pasted. Paste the full redirect URL.",
+      "no_refresh_token": "Login succeeded but no refresh token was returned. Try again."
+    },
     "abort": { "already_configured": "Green Hero is already configured." }
   },
   "entity": {

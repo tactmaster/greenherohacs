@@ -13,6 +13,7 @@ AUTH0_DEVICE_CODE_URL = f"{AUTH0_DOMAIN}/oauth/device/code"
 # Backend accepts tokens whose iss is the canonical tenant; send this header.
 OPENID_ISSUER = "https://greenhero.eu.auth0.com/"
 AUTH0_SCOPE = "openid profile email offline_access"
+AUTH0_REDIRECT_URI = "https://app.greenhero.com"
 
 # TODO: fill from the login.greenhero.com/authorize request (public values).
 AUTH0_CLIENT_ID = "s37BNkGesz6HLgWo8vLtVZcFl3iL5eUa"

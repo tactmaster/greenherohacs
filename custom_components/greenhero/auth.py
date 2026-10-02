@@ -89,3 +89,58 @@ async def async_poll_device_token(
         if body.get("error") in ("authorization_pending", "slow_down"):
             return None
         raise AuthError(f"device token error: {body.get('error')} {body}")
+
+
+# --- Authorization Code + PKCE (browser login that gives HA its own token family) ---
+import base64 as _b64
+import hashlib as _hashlib
+import secrets as _secrets
+from urllib.parse import urlencode as _urlencode
+
+from .const import AUTH0_DOMAIN, AUTH0_REDIRECT_URI
+
+
+def generate_pkce() -> tuple[str, str]:
+    """Return (code_verifier, code_challenge) for PKCE S256."""
+    verifier = _b64.urlsafe_b64encode(_secrets.token_bytes(32)).rstrip(b"=").decode()
+    digest = _hashlib.sha256(verifier.encode()).digest()
+    challenge = _b64.urlsafe_b64encode(digest).rstrip(b"=").decode()
+    return verifier, challenge
+
+
+def generate_state() -> str:
+    return _secrets.token_urlsafe(24)
+
+
+def build_authorize_url(code_challenge: str, state: str) -> str:
+    """Build the Auth0 /authorize URL for the manual browser login."""
+    params = {
+        "client_id": AUTH0_CLIENT_ID,
+        "response_type": "code",
+        "redirect_uri": AUTH0_REDIRECT_URI,
+        "scope": AUTH0_SCOPE,
+        "code_challenge": code_challenge,
+        "code_challenge_method": "S256",
+        "state": state,
+    }
+    return f"{AUTH0_DOMAIN}/authorize?{_urlencode(params)}"
+
+
+async def async_exchange_code(
+    session: aiohttp.ClientSession, code: str, code_verifier: str
+) -> dict:
+    """Exchange an authorization code for tokens (incl. a fresh refresh token)."""
+    async with session.post(
+        AUTH0_TOKEN_URL,
+        data={
+            "grant_type": "authorization_code",
+            "client_id": AUTH0_CLIENT_ID,
+            "code": code,
+            "code_verifier": code_verifier,
+            "redirect_uri": AUTH0_REDIRECT_URI,
+        },
+    ) as resp:
+        body = await resp.json()
+        if resp.status != 200:
+            raise AuthError(f"code exchange failed: {resp.status} {body}")
+        return body
