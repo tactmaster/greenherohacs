@@ -61,11 +61,15 @@ class GreenHeroApi:
 
     async def overview(
         self, place_id: str, mode: str = "day",
-        quantity: str = "currency", date: str | None = None,
+        quantity: str = "currency", timestamp: int | None = None,
     ) -> dict:
+        # The web app identifies the period with a Unix timestamp (seconds),
+        # not a date string. "now" selects the current day/month/year.
+        import time as _time
+        ts = timestamp if timestamp is not None else int(_time.time())
         return await self._get(
             f"/v0/overview/{mode}",
             place_id=place_id,
             quantity=quantity,
-            date=date or dt.date.today().isoformat(),
+            timestamp=ts,
         )
