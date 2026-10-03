@@ -30,7 +30,8 @@
       "no_refresh_token": "Login succeeded but no refresh token was returned. Try again."
     },
     "abort": {
-      "already_configured": "Green Hero is already configured."
+      "already_configured": "Green Hero is already configured.",
+      "reauth_successful": "Green Hero re-authenticated successfully."
     }
   }
 }
