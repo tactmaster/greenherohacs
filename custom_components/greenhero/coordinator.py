@@ -14,6 +14,22 @@ from .const import DOMAIN, UPDATE_INTERVAL
 _LOGGER = logging.getLogger(__name__)
 
 
+def _rows_from(payload) -> list:
+    """Extract a price-row list from a spot-prices payload, tolerant of shape."""
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict):
+        for k in ("prices", "values", "data", "spot_prices"):
+            v = payload.get(k)
+            if isinstance(v, list):
+                return v
+            if isinstance(v, dict):
+                for kk in ("prices", "values"):
+                    if isinstance(v.get(kk), list):
+                        return v[kk]
+    return []
+
+
 class GreenHeroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry, api: GreenHeroApi) -> None:
         super().__init__(hass, _LOGGER, name=DOMAIN, update_interval=UPDATE_INTERVAL)
@@ -57,7 +73,7 @@ class GreenHeroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 except GreenHeroApiError as err:
                     _LOGGER.debug("spot_prices %s unavailable: %s", day, err)
                     continue
-                rows = (payload or {}).get("prices") or (payload or {}).get("values") or []
+                rows = _rows_from(payload)
                 merged.extend(rows)
             if merged:
                 data["spot_prices"] = {"prices": merged}
