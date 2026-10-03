@@ -73,16 +73,23 @@ Green Hero logs in through Auth0. When you add the integration you get two optio
 
 1. The setup dialog shows a **Sign in to Green Hero** link. Open it and sign in
    (Google works).
-2. You'll be redirected to `app.greenhero.com` with `?code=...` in the URL. The
-   page may show an error — that's expected and harmless.
+2. You'll be redirected to `app.greenhero.com`, and the URL ends in
+   `#/code=...&state=...`. The page may be blank or show an error. That's
+   expected and harmless.
 3. Copy the **full URL** from the address bar and paste it into the dialog.
+
+Use the link from the dialog, not the normal Green Hero login. If your URL
+contains `?code=`, it came from the Green Hero app's own login and won't work.
 
 Home Assistant exchanges that code for its **own** refresh token (a separate
 token family from the web/phone apps), then mints short-lived access tokens from
 it automatically and rotates it in the background. You log in once.
 
-This flow uses its own PKCE `state`, so the Green Hero web app cannot consume the
-authorization code — it stays valid for Home Assistant.
+The link asks Auth0 to return the code in the URL fragment (`#...`) rather than
+the query string. The Green Hero web app only handles `?code=` callbacks; with
+those it wipes the URL and starts its own login, which used to replace Home
+Assistant's code with the web app's. With the fragment, the web app leaves the
+code alone, so it stays in the address bar and valid for Home Assistant.
 
 ### Paste a refresh token (advanced)
 

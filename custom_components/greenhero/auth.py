@@ -113,10 +113,17 @@ def generate_state() -> str:
 
 
 def build_authorize_url(code_challenge: str, state: str) -> str:
-    """Build the Auth0 /authorize URL for the manual browser login."""
+    """Build the Auth0 /authorize URL for the manual browser login.
+
+    response_mode=fragment returns the code after `#` instead of in `?`. The
+    Green Hero SPA only handles `?code=` callbacks: with query mode it wipes the
+    URL and starts its own login (so the user ends up copying the SPA's code, not
+    ours). With fragment mode it leaves `#/code=...&state=...` in the address bar.
+    """
     params = {
         "client_id": AUTH0_CLIENT_ID,
         "response_type": "code",
+        "response_mode": "fragment",
         "redirect_uri": AUTH0_REDIRECT_URI,
         "scope": AUTH0_SCOPE,
         "code_challenge": code_challenge,

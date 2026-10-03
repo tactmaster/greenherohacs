@@ -11,7 +11,7 @@
       },
       "browser": {
         "title": "Log in to Green Hero",
-        "description": "1. Open this link and sign in:\n\n[Sign in to Green Hero]({url})\n\n2. After signing in you'll land on a Green Hero page that may show an error — that's expected.\n3. Copy the **full URL** from your browser's address bar (it contains `?code=...`) and paste it below.",
+        "description": "1. Open this link and sign in:\n\n[Sign in to Green Hero]({url})\n\n2. You'll land on the Green Hero web app, possibly a blank or error page — that's expected.\n3. Copy the **full URL** from your browser's address bar (it ends in `#/code=...&state=...`) and paste it below.\n\nUse the link above, not the normal Green Hero login: a URL with `?code=` comes from the Green Hero app's own login and won't work.",
         "data": {
           "result": "Pasted URL (or code)"
         }
@@ -25,8 +25,9 @@
       }
     },
     "error": {
-      "invalid_auth": "Could not authenticate with that value. Try the login link again.",
+      "invalid_auth": "Could not authenticate with that value (the code may have expired or already been used). Open the sign-in link again and paste the new URL straight away.",
       "invalid_code": "Couldn't find a code in what you pasted. Paste the full redirect URL.",
+      "state_mismatch": "That URL is from a different login (probably the Green Hero app's own). Open the sign-in link above and paste the URL you land on.",
       "no_refresh_token": "Login succeeded but no refresh token was returned. Try again."
     },
     "abort": {

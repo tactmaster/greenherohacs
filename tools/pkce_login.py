@@ -29,6 +29,8 @@ def main():
     state = secrets.token_urlsafe(24)
     url = f"{DOMAIN}/authorize?" + urlencode({
         "client_id": CLIENT_ID, "response_type": "code",
+        # fragment: the SPA ignores #code=, so it can't swap in its own login
+        "response_mode": "fragment",
         "redirect_uri": REDIRECT_URI, "scope": SCOPE,
         "code_challenge": challenge, "code_challenge_method": "S256",
         "state": state,
@@ -37,7 +39,11 @@ def main():
     print("2) You'll be redirected to app.greenhero.com (may show an error - fine).")
     pasted = input("3) Paste the full URL from the address bar here:\n> ").strip()
 
-    code = parse_qs(urlparse(pasted).query).get("code", [pasted])[0]
+    u = urlparse(pasted)
+    qs = parse_qs(u.fragment.lstrip("/")) or parse_qs(u.query)
+    code = qs.get("code", [pasted])[0]
+    if qs.get("state", [state])[0] != state:
+        raise SystemExit("State mismatch: that URL is from a different login.")
     r = requests.post(f"{DOMAIN}/oauth/token", data={
         "grant_type": "authorization_code", "client_id": CLIENT_ID,
         "code": code, "code_verifier": verifier, "redirect_uri": REDIRECT_URI,

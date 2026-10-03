@@ -2,11 +2,13 @@
 
 Primary path: a browser login (Authorization Code + PKCE) that gives Home
 Assistant its own refresh-token family, so it never fights the Green Hero web
-app over a shared rotating token. We use our own `state`, so the Green Hero SPA
-cannot consume our `code` (state mismatch) and it stays valid for HA to exchange.
+app over a shared rotating token. The code comes back in the URL fragment
+(response_mode=fragment), which the Green Hero SPA ignores, so it stays in the
+address bar for the user to paste and valid for HA to exchange.
 """
 from __future__ import annotations
 
+import logging
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
@@ -24,15 +26,27 @@ from .auth import (
 )
 from .const import CONF_REFRESH_TOKEN, DOMAIN
 
+_LOGGER = logging.getLogger(__name__)
 
-def _extract_code(pasted: str) -> str | None:
-    """Accept a full redirect URL or a bare code."""
+
+def _extract_code(pasted: str) -> tuple[str | None, str | None]:
+    """Return (code, state) from a pasted URL; (code, None) for a bare code.
+
+    The code may be in the fragment (`/#/code=..&state=..` once the SPA's hash
+    router has touched it, or `/#code=..`) or, for older links, in the query.
+    """
     pasted = pasted.strip()
-    if "code=" in pasted:
-        qs = parse_qs(urlparse(pasted).query)
+    if "code=" not in pasted:
+        # A URL without a code (e.g. the SPA's home page) is not a bare code.
+        if not pasted or "://" in pasted:
+            return None, None
+        return pasted, None
+    url = urlparse(pasted)
+    for part in (url.fragment.lstrip("/"), url.query):
+        qs = parse_qs(part)
         if qs.get("code"):
-            return qs["code"][0]
-    return pasted or None
+            return qs["code"][0], qs.get("state", [None])[0]
+    return None, None
 
 
 class GreenHeroConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -40,6 +54,7 @@ class GreenHeroConfigFlow(ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         self._verifier: str | None = None
+        self._challenge: str | None = None
         self._state: str | None = None
         self._reauth_entry: ConfigEntry | None = None
 
@@ -79,14 +94,18 @@ class GreenHeroConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            code = _extract_code(user_input["result"])
+            code, state = _extract_code(user_input["result"])
             if not code:
                 errors["base"] = "invalid_code"
+            elif state is not None and state != self._state:
+                # Usually the Green Hero app's own login URL, not our link's.
+                errors["base"] = "state_mismatch"
             else:
                 session = async_get_clientsession(self.hass)
                 try:
                     token = await async_exchange_code(session, code, self._verifier)
-                except AuthError:
+                except AuthError as err:
+                    _LOGGER.warning("Green Hero login failed: %s", err)
                     errors["base"] = "invalid_auth"
                 else:
                     refresh_token = token.get("refresh_token")
@@ -95,9 +114,12 @@ class GreenHeroConfigFlow(ConfigFlow, domain=DOMAIN):
                     else:
                         return await self._finish(refresh_token)
 
-        self._verifier, challenge = generate_pkce()
-        self._state = generate_state()
-        url = build_authorize_url(challenge, self._state)
+        # One verifier/state per flow, so re-showing the form (errors, frontend
+        # re-renders) never invalidates a login the user already started.
+        if self._verifier is None:
+            self._verifier, self._challenge = generate_pkce()
+            self._state = generate_state()
+        url = build_authorize_url(self._challenge, self._state)
         return self.async_show_form(
             step_id="browser",
             data_schema=vol.Schema({vol.Required("result"): str}),
