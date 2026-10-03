@@ -43,10 +43,24 @@ class GreenHeroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             await self._async_setup()
         data: dict[str, Any] = {}
 
+        import datetime as _dt
+
         await self._try(data, "battery", self.api.battery_status(self.place_id))
         if self.electricity_area:
-            # today + tomorrow prices
-            await self._try(data, "spot_prices", self.api.spot_prices(self.electricity_area))
+            # The web app fetches one day at a time; get today + tomorrow and merge
+            # so we have day-ahead prices for charts/automations.
+            merged: list = []
+            for off in (0, 1):
+                day = (_dt.date.today() + _dt.timedelta(days=off)).isoformat()
+                try:
+                    payload = await self.api.spot_prices_day(self.electricity_area, day)
+                except GreenHeroApiError as err:
+                    _LOGGER.debug("spot_prices %s unavailable: %s", day, err)
+                    continue
+                rows = (payload or {}).get("prices") or (payload or {}).get("values") or []
+                merged.extend(rows)
+            if merged:
+                data["spot_prices"] = {"prices": merged}
         if self.place_id:
             # cost (currency) and energy for the usual periods
             await self._try(data, "cost_day", self.api.overview(self.place_id, "day", "currency"))

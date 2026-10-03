@@ -11,7 +11,7 @@ AUTH0_DOMAIN = "https://login.greenhero.com"
 AUTH0_TOKEN_URL = f"{AUTH0_DOMAIN}/oauth/token"
 AUTH0_DEVICE_CODE_URL = f"{AUTH0_DOMAIN}/oauth/device/code"
 # Backend accepts tokens whose iss is the canonical tenant; send this header.
-OPENID_ISSUER = "https://greenhero.eu.auth0.com/"
+OPENID_ISSUER = "https://login.greenhero.com/"
 AUTH0_SCOPE = "openid profile email offline_access"
 AUTH0_REDIRECT_URI = "https://app.greenhero.com"
 

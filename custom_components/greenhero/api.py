@@ -47,19 +47,15 @@ class GreenHeroApi:
     async def battery_status(self, place_id: str | None = None) -> dict:
         return await self._get("/v0/battery-status", place_id=place_id)
 
-    async def spot_prices(
-        self,
-        electricity_area: str,
-        from_date: str | None = None,
-        to_date: str | None = None,
-        interval: int = 60,
+    async def spot_prices_day(
+        self, electricity_area: str, date: str, interval: int = 15
     ) -> dict:
-        today = dt.date.today()
+        """Prices for a single day (the web app calls with from_date == to_date)."""
         return await self._get(
             "/v0/spot-prices",
             electricity_area=electricity_area,
-            from_date=from_date or today.isoformat(),
-            to_date=to_date or (today + dt.timedelta(days=1)).isoformat(),
+            from_date=date,
+            to_date=date,
             interval=interval,
         )
 
