@@ -112,24 +112,33 @@ def generate_state() -> str:
     return _secrets.token_urlsafe(24)
 
 
-def build_authorize_url(code_challenge: str, state: str) -> str:
+def build_authorize_url(
+    code_challenge: str, state: str, *, silent: bool = False
+) -> str:
     """Build the Auth0 /authorize URL for the manual browser login.
 
-    response_mode=fragment returns the code after `#` instead of in `?`. The
-    Green Hero SPA only handles `?code=` callbacks: with query mode it wipes the
-    URL and starts its own login (so the user ends up copying the SPA's code, not
-    ours). With fragment mode it leaves `#/code=...&state=...` in the address bar.
+    response_mode=web_message makes Auth0 answer with a small HTML page on
+    login.greenhero.com that embeds the code (meant for postMessage to an
+    app.greenhero.com opener; with no opener it just sits there). Any redirect
+    to app.greenhero.com instead loads the Green Hero SPA, which navigates away
+    and loses our code before the user can copy it.
+
+    silent=True adds prompt=none: if the browser already has a Green Hero
+    session the response page comes back immediately, so opening it with a
+    `view-source:` prefix shows the code as plain, copyable text.
     """
     params = {
         "client_id": AUTH0_CLIENT_ID,
         "response_type": "code",
-        "response_mode": "fragment",
+        "response_mode": "web_message",
         "redirect_uri": AUTH0_REDIRECT_URI,
         "scope": AUTH0_SCOPE,
         "code_challenge": code_challenge,
         "code_challenge_method": "S256",
         "state": state,
     }
+    if silent:
+        params["prompt"] = "none"
     return f"{AUTH0_DOMAIN}/authorize?{_urlencode(params)}"
 
 

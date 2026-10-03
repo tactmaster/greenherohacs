@@ -2,19 +2,22 @@
 
 Primary path: a browser login (Authorization Code + PKCE) that gives Home
 Assistant its own refresh-token family, so it never fights the Green Hero web
-app over a shared rotating token. The code comes back in the URL fragment
-(response_mode=fragment), which the Green Hero SPA ignores, so it stays in the
-address bar for the user to paste and valid for HA to exchange.
+app over a shared rotating token. Auth0 returns the code in a web_message page
+on login.greenhero.com (never redirecting to the Green Hero SPA, which would
+navigate away and lose it); the user opens that page with `view-source:` and
+pastes its source here.
 """
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.selector import TextSelector, TextSelectorConfig
 
 from .auth import (
     AuthError,
@@ -29,24 +32,36 @@ from .const import CONF_REFRESH_TOKEN, DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 
-def _extract_code(pasted: str) -> tuple[str | None, str | None]:
-    """Return (code, state) from a pasted URL; (code, None) for a bare code.
+def _json_field(text: str, name: str) -> str | None:
+    match = re.search(rf'"{name}"\s*:\s*"([^"]+)"', text)
+    return match.group(1) if match else None
 
-    The code may be in the fragment (`/#/code=..&state=..` once the SPA's hash
-    router has touched it, or `/#code=..`) or, for older links, in the query.
+
+def _extract_code(pasted: str) -> tuple[str | None, str | None, str | None]:
+    """Return (code, state, error) from what the user pasted.
+
+    Accepts the source of Auth0's web_message "Authorization Response" page
+    (`"code":"..."` inside a script), a redirect URL with the code in the
+    fragment or query, or a bare code.
     """
     pasted = pasted.strip()
+    if "authorization_response" in pasted:
+        return (
+            _json_field(pasted, "code"),
+            _json_field(pasted, "state"),
+            _json_field(pasted, "error"),
+        )
     if "code=" not in pasted:
-        # A URL without a code (e.g. the SPA's home page) is not a bare code.
-        if not pasted or "://" in pasted:
-            return None, None
-        return pasted, None
+        # Text without a code (a URL, a web page) is not a bare code.
+        if not pasted or any(c in pasted for c in ":/<> \n"):
+            return None, None, None
+        return pasted, None, None
     url = urlparse(pasted)
     for part in (url.fragment.lstrip("/"), url.query):
         qs = parse_qs(part)
         if qs.get("code"):
-            return qs["code"][0], qs.get("state", [None])[0]
-    return None, None
+            return qs["code"][0], qs.get("state", [None])[0], None
+    return None, None, None
 
 
 class GreenHeroConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -94,9 +109,19 @@ class GreenHeroConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            code, state = _extract_code(user_input["result"])
-            if not code:
-                errors["base"] = "invalid_code"
+            pasted = user_input["result"]
+            code, state, error = _extract_code(pasted)
+            if error in ("login_required", "interaction_required"):
+                errors["base"] = "not_signed_in"
+            elif error:
+                _LOGGER.warning("Green Hero login returned error: %s", error)
+                errors["base"] = "invalid_auth"
+            elif not code:
+                # The link itself, not the page it opens, is a common mix-up.
+                errors["base"] = (
+                    "pasted_login_link" if "/authorize?" in pasted
+                    else "invalid_code"
+                )
             elif state is not None and state != self._state:
                 # Usually the Green Hero app's own login URL, not our link's.
                 errors["base"] = "state_mismatch"
@@ -119,11 +144,21 @@ class GreenHeroConfigFlow(ConfigFlow, domain=DOMAIN):
         if self._verifier is None:
             self._verifier, self._challenge = generate_pkce()
             self._state = generate_state()
-        url = build_authorize_url(self._challenge, self._state)
+        login_url = build_authorize_url(self._challenge, self._state)
+        code_url = build_authorize_url(self._challenge, self._state, silent=True)
         return self.async_show_form(
             step_id="browser",
-            data_schema=vol.Schema({vol.Required("result"): str}),
-            description_placeholders={"url": url},
+            data_schema=vol.Schema(
+                {
+                    vol.Required("result"): TextSelector(
+                        TextSelectorConfig(multiline=True)
+                    )
+                }
+            ),
+            description_placeholders={
+                "login_url": login_url,
+                "code_url": f"view-source:{code_url}",
+            },
             errors=errors,
         )
 

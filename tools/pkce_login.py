@@ -1,6 +1,7 @@
 """Browser login via Authorization Code + PKCE (HA's own token family).
 
-Run it, open the printed URL, sign in, then paste the URL you're redirected to.
+Run it, sign in with the first URL if needed, open the view-source: line, and
+paste the page source (or a redirect URL / bare code).
 It saves a fresh refresh_token and dumps spot-prices so we can verify the shape.
 
     python3 tools/pkce_login.py
@@ -8,6 +9,7 @@ It saves a fresh refresh_token and dumps spot-prices so we can verify the shape.
 import base64
 import hashlib
 import json
+import re
 import secrets
 from urllib.parse import parse_qs, urlencode, urlparse
 
@@ -29,15 +31,22 @@ def main():
     state = secrets.token_urlsafe(24)
     url = f"{DOMAIN}/authorize?" + urlencode({
         "client_id": CLIENT_ID, "response_type": "code",
-        # fragment: the SPA ignores #code=, so it can't swap in its own login
-        "response_mode": "fragment",
+        # web_message: Auth0 answers on its own page; no redirect to the SPA
+        "response_mode": "web_message",
         "redirect_uri": REDIRECT_URI, "scope": SCOPE,
         "code_challenge": challenge, "code_challenge_method": "S256",
         "state": state,
     })
-    print("1) Open this URL and sign in:\n\n   ", url, "\n")
-    print("2) You'll be redirected to app.greenhero.com (may show an error - fine).")
-    pasted = input("3) Paste the full URL from the address bar here:\n> ").strip()
+    print("1) If not signed in to Green Hero in your browser, open and sign in:"
+          "\n\n   ", url, "\n")
+    print("2) Paste this into the address bar, then copy the whole page:\n\n   ",
+          "view-source:" + url + "&prompt=none", "\n")
+    pasted = input("3) Paste the page (one line is fine) here:\n> ").strip()
+    if "authorization_response" in pasted:
+        m = re.search(r'"code"\s*:\s*"([^"]+)"', pasted)
+        if not m:
+            raise SystemExit(f"No code in that page (not signed in?): {pasted[-200:]}")
+        pasted = m.group(1)
 
     u = urlparse(pasted)
     qs = parse_qs(u.fragment.lstrip("/")) or parse_qs(u.query)

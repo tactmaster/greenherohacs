@@ -11,9 +11,9 @@
       },
       "browser": {
         "title": "Log in to Green Hero",
-        "description": "1. Open this link and sign in:\n\n[Sign in to Green Hero]({url})\n\n2. You'll land on the Green Hero web app, possibly a blank or error page — that's expected.\n3. Copy the **full URL** from your browser's address bar (it ends in `#/code=...&state=...`) and paste it below.\n\nUse the link above, not the normal Green Hero login: a URL with `?code=` comes from the Green Hero app's own login and won't work.",
+        "description": "**Step 1: sign in (skip if you're already logged in to Green Hero in this browser)**\n\n[Sign in to Green Hero]({login_url}). After signing in you'll see a blank page; that's expected.\n\n**Step 2: get the code**\n\nCopy the whole line below, paste it into your browser's address bar and press Enter (it must start with `view-source:`; this works in Chrome, Edge and Firefox on a computer):\n\n```\n{code_url}\n```\n\nYou'll see a page of code. Press **Ctrl+A** then **Ctrl+C** (Cmd on a Mac) and paste it all below. Nothing redirects, so there's no rush.",
         "data": {
-          "result": "Pasted URL (or code)"
+          "result": "Pasted page (or URL / code)"
         }
       },
       "refresh_token": {
@@ -25,9 +25,11 @@
       }
     },
     "error": {
-      "invalid_auth": "Could not authenticate with that value (the code may have expired or already been used). Open the sign-in link again and paste the new URL straight away.",
-      "invalid_code": "Couldn't find a code in what you pasted. Paste the full redirect URL.",
-      "state_mismatch": "That URL is from a different login (probably the Green Hero app's own). Open the sign-in link above and paste the URL you land on.",
+      "invalid_auth": "Could not log in with that code (each code works once and expires after a few minutes). Reload the `view-source:` page from step 2 to get a fresh one and paste it.",
+      "invalid_code": "Couldn't find a code in what you pasted. Open the `view-source:` line from step 2 and paste the whole page.",
+      "pasted_login_link": "That's a link, not the page it opens. Paste the `view-source:` line into your address bar, press Enter, then copy the whole page (Ctrl+A, Ctrl+C) and paste it here.",
+      "not_signed_in": "Your browser isn't signed in to Green Hero yet. Do step 1 first, then step 2 again.",
+      "state_mismatch": "That code is from a different login (an older dialog or the Green Hero app itself). Use the `view-source:` line from this dialog.",
       "no_refresh_token": "Login succeeded but no refresh token was returned. Try again."
     },
     "abort": {

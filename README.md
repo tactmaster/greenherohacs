@@ -71,25 +71,31 @@ Green Hero logs in through Auth0. When you add the integration you get two optio
 
 ### Log in with browser (recommended)
 
-1. The setup dialog shows a **Sign in to Green Hero** link. Open it and sign in
-   (Google works).
-2. You'll be redirected to `app.greenhero.com`, and the URL ends in
-   `#/code=...&state=...`. The page may be blank or show an error. That's
-   expected and harmless.
-3. Copy the **full URL** from the address bar and paste it into the dialog.
+Use a browser on a computer (Chrome, Edge or Firefox).
 
-Use the link from the dialog, not the normal Green Hero login. If your URL
-contains `?code=`, it came from the Green Hero app's own login and won't work.
+1. **Sign in** (skip if you're already logged in to Green Hero in that
+   browser): click **Sign in to Green Hero** in the dialog and sign in (Google
+   works). You'll end on a blank page. That's expected.
+2. **Get the code**: copy the line in the dialog that starts with
+   `view-source:`, paste it into the address bar and press Enter. You'll see a
+   short page of code.
+3. Press **Ctrl+A**, **Ctrl+C** (Cmd on a Mac) and paste the whole page into
+   the dialog.
+
+Nothing redirects, so there's no rush. If it says the code expired, reload the
+`view-source:` page and paste again; each load gives a fresh code.
 
 Home Assistant exchanges that code for its **own** refresh token (a separate
 token family from the web/phone apps), then mints short-lived access tokens from
 it automatically and rotates it in the background. You log in once.
 
-The link asks Auth0 to return the code in the URL fragment (`#...`) rather than
-the query string. The Green Hero web app only handles `?code=` callbacks; with
-those it wipes the URL and starts its own login, which used to replace Home
-Assistant's code with the web app's. With the fragment, the web app leaves the
-code alone, so it stays in the address bar and valid for Home Assistant.
+**Why `view-source:`?** Auth0 only allows this client to send the code back to
+`app.greenhero.com`. Loading that page starts the Green Hero web app, which
+moves to another page and loses the code before you can copy it. Instead, the
+links use Auth0's `web_message` mode: Auth0 answers with a small page on
+`login.greenhero.com` that holds the code and never redirects. With
+`prompt=none`, a browser that's already signed in gets that page immediately,
+and `view-source:` shows it as copyable text.
 
 ### Paste a refresh token (advanced)
 
