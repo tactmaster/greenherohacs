@@ -1,12 +1,15 @@
 """Spot-price helpers shared by the sensor/binary_sensor platforms.
 
-Defensive: tolerates [timestamp, value] pairs or dict entries, with or without
-timezone, so it keeps working if the API shape shifts slightly.
+The API returns {"prices": [[unix_seconds, value], ...], "min", "max",
+"average"}, prices in öre/kWh. Also tolerates ISO timestamps and dict entries in case it shifts.
 """
 from __future__ import annotations
 
 import datetime as dt
 from typing import Any
+
+# The API (and the Green Hero app) quote spot prices in öre/kWh; HA gets SEK/kWh.
+ORE_PER_SEK = 100
 
 
 def iter_prices(data: dict[str, Any]):
@@ -23,11 +26,17 @@ def iter_prices(data: dict[str, Any]):
         if ts is None or val is None:
             continue
         try:
-            t = dt.datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
-            if t.tzinfo is None:
-                t = t.astimezone()
-            yield t, float(val)
-        except (ValueError, TypeError):
+            if isinstance(ts, (int, float)):
+                # The API sends Unix seconds (the SPA compares with Date.now()/1e3).
+                if ts > 1e11:  # tolerate milliseconds too
+                    ts = ts / 1000
+                t = dt.datetime.fromtimestamp(ts, tz=dt.timezone.utc).astimezone()
+            else:
+                t = dt.datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+                if t.tzinfo is None:
+                    t = t.astimezone()
+            yield t, float(val) / ORE_PER_SEK
+        except (ValueError, TypeError, OverflowError, OSError):
             continue
 
 
@@ -59,7 +68,11 @@ def stats_today(data: dict[str, Any]) -> dict[str, float]:
     if not vals:
         # fall back to payload-level stats if present
         sp = data.get("spot_prices") or {}
-        return {k: sp[k] for k in ("min", "max", "average") if k in sp}
+        return {
+            k: round(sp[k] / ORE_PER_SEK, 4)
+            for k in ("min", "max", "average")
+            if isinstance(sp.get(k), (int, float))
+        }
     return {"min": min(vals), "max": max(vals), "average": round(sum(vals) / len(vals), 4)}
 
 

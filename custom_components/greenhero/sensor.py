@@ -24,32 +24,53 @@ from .const import CURRENCY, DOMAIN, PRICE_UNIT
 from .coordinator import GreenHeroCoordinator
 
 
-def _overview_total(payload: Any) -> float | None:
-    """Pull the period total from an overview payload (shape-tolerant)."""
-    if payload is None:
-        return None
-    if isinstance(payload, (int, float)):
-        return float(payload)
-    if isinstance(payload, dict):
-        total = payload.get("total")
-        if isinstance(total, (int, float)):
-            return float(total)
-        if isinstance(total, dict):
-            for k in ("value", "amount", "total", "sum"):
-                if isinstance(total.get(k), (int, float)):
-                    return float(total[k])
-        # fall back to summing interval values
-        intervals = payload.get("intervals") or payload.get("months") or []
-        vals = []
-        for it in intervals:
-            if isinstance(it, dict):
-                for k in ("value", "total", "amount"):
-                    if isinstance(it.get(k), (int, float)):
-                        vals.append(float(it[k]))
-                        break
-        if vals:
-            return round(sum(vals), 4)
-    return None
+# Overview totals are energy flows between Production, Battery, Grid and Load:
+# P_B, P_L, P_G, B_L, B_G, G_L, plus L (total load). With quantity=currency the
+# same keys hold money instead of kWh.
+_FLOWS = ("P_B", "P_L", "P_G", "B_L", "B_G", "G_L", "L")
+
+
+def _flows(payload: Any) -> dict[str, float]:
+    total = payload.get("total") if isinstance(payload, dict) else None
+    if not isinstance(total, dict):
+        return {}
+    return {
+        k: float(total[k]) for k in _FLOWS if isinstance(total.get(k), (int, float))
+    }
+
+
+def _sum(f: dict[str, float], *keys: str) -> float | None:
+    vals = [f[k] for k in keys if k in f]
+    return round(sum(vals), 3) if vals else None
+
+
+def _consumption(payload: Any) -> float | None:
+    """Total household use in kWh: L, or grid + solar + battery into the load."""
+    f = _flows(payload)
+    if "L" in f:
+        return round(f["L"], 3)
+    return _sum(f, "G_L", "P_L", "B_L")
+
+
+def _grid_cost(payload: Any) -> float | None:
+    """What grid electricity used at home cost (G_L in currency mode)."""
+    f = _flows(payload)
+    return round(f["G_L"], 2) if "G_L" in f else None
+
+
+def _flow_attrs(payload: Any) -> dict[str, Any]:
+    f = _flows(payload)
+    attrs: dict[str, Any] = {
+        "from_grid": f.get("G_L"),
+        "from_solar": f.get("P_L"),
+        "from_battery": f.get("B_L"),
+        "solar_to_battery": f.get("P_B"),
+        "solar_to_grid": f.get("P_G"),
+        "battery_to_grid": f.get("B_G"),
+        "total_use": f.get("L"),
+        "exported": _sum(f, "P_G", "B_G"),
+    }
+    return {k: v for k, v in attrs.items() if v is not None}
 
 
 def _cheapest_price(d: dict) -> float | None:
@@ -129,21 +150,24 @@ SENSORS: tuple[GreenHeroSensorDescription, ...] = (
         native_unit_of_measurement=CURRENCY,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
-        value_fn=lambda d: _overview_total(d.get("cost_day")),
+        value_fn=lambda d: _grid_cost(d.get("cost_day")),
+        attrs_fn=lambda d: _flow_attrs(d.get("cost_day")),
     ),
     GreenHeroSensorDescription(
         key="cost_month", translation_key="cost_month",
         native_unit_of_measurement=CURRENCY,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
-        value_fn=lambda d: _overview_total(d.get("cost_month")),
+        value_fn=lambda d: _grid_cost(d.get("cost_month")),
+        attrs_fn=lambda d: _flow_attrs(d.get("cost_month")),
     ),
     GreenHeroSensorDescription(
         key="cost_year", translation_key="cost_year",
         native_unit_of_measurement=CURRENCY,
         device_class=SensorDeviceClass.MONETARY,
         state_class=SensorStateClass.TOTAL,
-        value_fn=lambda d: _overview_total(d.get("cost_year")),
+        value_fn=lambda d: _grid_cost(d.get("cost_year")),
+        attrs_fn=lambda d: _flow_attrs(d.get("cost_year")),
     ),
     # --- energy (Energy dashboard compatible) ---
     GreenHeroSensorDescription(
@@ -151,14 +175,16 @@ SENSORS: tuple[GreenHeroSensorDescription, ...] = (
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda d: _overview_total(d.get("energy_day")),
+        value_fn=lambda d: _consumption(d.get("energy_day")),
+        attrs_fn=lambda d: _flow_attrs(d.get("energy_day")),
     ),
     GreenHeroSensorDescription(
         key="energy_lifetime", translation_key="energy_lifetime",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
         state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda d: _overview_total(d.get("energy_lifetime")),
+        value_fn=lambda d: _consumption(d.get("energy_lifetime")),
+        attrs_fn=lambda d: _flow_attrs(d.get("energy_lifetime")),
     ),
 )
 

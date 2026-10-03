@@ -22,12 +22,16 @@ It reads your data from the same private API the Green Hero web app uses
   below today's average (handy for charging automations)
 
 **Cost & energy** (from `/v0/overview`)
-- Cost today / this month / this year (SEK)
-- Energy today and Energy lifetime (kWh) — `total_increasing`, so they can be
-  added to the native **Energy dashboard**
+- Cost today / this month / this year (SEK): what the electricity you took
+  from the grid cost
+- Energy today and Energy lifetime (kWh): total household use (grid + solar +
+  battery). These are `total_increasing`, so they can be added to the native
+  **Energy dashboard**
+- Each one has the full breakdown as attributes: `from_grid`, `from_solar`,
+  `from_battery`, `solar_to_battery`, `solar_to_grid`, `battery_to_grid`,
+  `total_use`, `exported`
 
-> Cost/energy field mapping is provisional until verified against a live
-> `/v0/overview` response; unexpected shapes show as *Unknown* rather than erroring.
+Spot prices come from the API in öre/kWh and are shown in SEK/kWh.
 
 ## Showing future (day-ahead) prices
 

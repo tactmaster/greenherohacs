@@ -38,6 +38,15 @@ class GreenHeroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         self.place_id: str | None = None
         self.electricity_area: str | None = None
         self.place_name: str | None = None
+        self._warned: set[str] = set()
+
+    def _log_failure(self, key: str, err: Exception) -> None:
+        """Warn once per data source, then keep further repeats at debug."""
+        if key in self._warned:
+            _LOGGER.debug("%s unavailable: %s", key, err)
+        else:
+            self._warned.add(key)
+            _LOGGER.warning("Green Hero %s unavailable: %s", key, err)
 
     async def _async_setup(self) -> None:
         """Resolve the primary place once."""
@@ -52,7 +61,7 @@ class GreenHeroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
         try:
             data[key] = await coro
         except GreenHeroApiError as err:
-            _LOGGER.debug("%s unavailable: %s", key, err)
+            self._log_failure(key, err)
 
     async def _async_update_data(self) -> dict[str, Any]:
         if self.place_id is None:
@@ -71,7 +80,9 @@ class GreenHeroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
                 try:
                     payload = await self.api.spot_prices_day(self.electricity_area, day)
                 except GreenHeroApiError as err:
-                    _LOGGER.debug("spot_prices %s unavailable: %s", day, err)
+                    # Tomorrow's prices only appear in the afternoon; not an error.
+                    if off == 0:
+                        self._log_failure("spot_prices", err)
                     continue
                 rows = _rows_from(payload)
                 merged.extend(rows)
