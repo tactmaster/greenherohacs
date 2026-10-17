@@ -36,5 +36,92 @@
       "already_configured": "Green Hero is already configured.",
       "reauth_successful": "Green Hero re-authenticated successfully."
     }
+  },
+  "entity": {
+    "sensor": {
+      "battery_soc": {
+        "name": "Battery charge"
+      },
+      "battery_power": {
+        "name": "Battery power"
+      },
+      "spot_price_now": {
+        "name": "Spot price now"
+      },
+      "spot_price_cheapest": {
+        "name": "Spot price cheapest today"
+      },
+      "spot_price_peak": {
+        "name": "Spot price peak today"
+      },
+      "spot_price_cheapest_time": {
+        "name": "Cheapest hour today"
+      },
+      "cost_today": {
+        "name": "Cost today"
+      },
+      "cost_month": {
+        "name": "Cost this month"
+      },
+      "cost_year": {
+        "name": "Cost this year"
+      },
+      "energy_today": {
+        "name": "Energy today"
+      },
+      "energy_lifetime": {
+        "name": "Energy lifetime"
+      },
+      "solar_power": {
+        "name": "Solar power"
+      },
+      "load_power": {
+        "name": "House power"
+      },
+      "grid_import_power": {
+        "name": "Grid import power"
+      },
+      "grid_export_power": {
+        "name": "Grid export power"
+      },
+      "grid_import_today": {
+        "name": "Grid import today"
+      },
+      "grid_export_today": {
+        "name": "Grid export today"
+      },
+      "solar_production_today": {
+        "name": "Solar production today"
+      },
+      "grid_import_lifetime": {
+        "name": "Grid import lifetime"
+      },
+      "grid_export_lifetime": {
+        "name": "Grid export lifetime"
+      },
+      "solar_production_lifetime": {
+        "name": "Solar production lifetime"
+      },
+      "battery_charged_lifetime": {
+        "name": "Battery charged lifetime"
+      },
+      "battery_discharged_lifetime": {
+        "name": "Battery discharged lifetime"
+      },
+      "export_earnings_today": {
+        "name": "Export earnings today"
+      },
+      "export_earnings_month": {
+        "name": "Export earnings this month"
+      },
+      "export_earnings_year": {
+        "name": "Export earnings this year"
+      }
+    },
+    "binary_sensor": {
+      "cheap_now": {
+        "name": "Electricity cheap now"
+      }
+    }
   }
 }

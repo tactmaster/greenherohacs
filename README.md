@@ -11,8 +11,9 @@ It reads your data from the same private API the Green Hero web app uses
 
 ## Entities
 
-**Battery**
+**Battery & live power** (from `/v0/battery-status`, every 5 minutes)
 - Battery charge (%) and Battery power (kW)
+- Solar power, House power, Grid import power, Grid export power (kW)
 
 **Spot price (incl. future)**
 - Spot price now (SEK/kWh) — with `prices_today` / `prices_tomorrow` arrays and
@@ -31,7 +32,24 @@ It reads your data from the same private API the Green Hero web app uses
   `from_battery`, `solar_to_battery`, `solar_to_grid`, `battery_to_grid`,
   `total_use`, `exported`
 
+- Export earnings today / this month / this year (SEK)
+
+**Energy dashboard** (kWh, `total_increasing`)
+- Grid import, Grid export and Solar production: today and lifetime
+- Battery charged and Battery discharged: lifetime
+
+A sensor that combines several flows (solar production, battery) reads
+*Unknown* when Green Hero doesn't report all of them, rather than showing a
+partial total. Today's figures can also stay *Unknown* until Green Hero
+receives the day's meter data.
+
 Spot prices come from the API in öre/kWh and are shown in SEK/kWh.
+
+**Diagnostics**: Settings → Devices & services → Green Hero → ⋮ →
+*Download diagnostics* gives the raw API data behind every sensor (refresh
+token and location removed).
+
+Not included on purpose: invoices, account, notifications and weather.
 
 ## Showing future (day-ahead) prices
 

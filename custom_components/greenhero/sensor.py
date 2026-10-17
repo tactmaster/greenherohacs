@@ -58,6 +58,30 @@ def _grid_cost(payload: Any) -> float | None:
     return round(f["G_L"], 2) if "G_L" in f else None
 
 
+def _all(payload: Any, *keys: str, digits: int = 3) -> float | None:
+    """Sum of flows, or None unless every one is reported.
+
+    Lets e.g. solar production read Unknown instead of a misleading partial
+    total when the API leaves solar-to-home or battery flows empty.
+    """
+    f = _flows(payload)
+    if not all(k in f for k in keys):
+        return None
+    return round(sum(f[k] for k in keys), digits)
+
+
+def _exported(payload: Any, digits: int = 3) -> float | None:
+    """Solar + battery to grid; a missing battery flow counts as none."""
+    f = _flows(payload)
+    if "P_G" not in f:
+        return None
+    return round(f["P_G"] + f.get("B_G", 0.0), digits)
+
+
+def _live(key: str) -> Callable[[dict[str, Any]], Any]:
+    return lambda d: (d.get("battery") or {}).get(key)
+
+
 def _flow_attrs(payload: Any) -> dict[str, Any]:
     f = _flows(payload)
     attrs: dict[str, Any] = {
@@ -185,6 +209,114 @@ SENSORS: tuple[GreenHeroSensorDescription, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=lambda d: _consumption(d.get("energy_lifetime")),
         attrs_fn=lambda d: _flow_attrs(d.get("energy_lifetime")),
+    ),
+    # --- live power (battery-status) ---
+    GreenHeroSensorDescription(
+        key="solar_power", translation_key="solar_power",
+        native_unit_of_measurement=UnitOfPower.KILO_WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_live("production_power"),
+    ),
+    GreenHeroSensorDescription(
+        key="load_power", translation_key="load_power",
+        native_unit_of_measurement=UnitOfPower.KILO_WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_live("load_power"),
+    ),
+    GreenHeroSensorDescription(
+        key="grid_import_power", translation_key="grid_import_power",
+        native_unit_of_measurement=UnitOfPower.KILO_WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_live("grid_import_power"),
+    ),
+    GreenHeroSensorDescription(
+        key="grid_export_power", translation_key="grid_export_power",
+        native_unit_of_measurement=UnitOfPower.KILO_WATT,
+        device_class=SensorDeviceClass.POWER,
+        state_class=SensorStateClass.MEASUREMENT,
+        value_fn=_live("grid_export_power"),
+    ),
+    # --- energy flows for the Energy dashboard ---
+    GreenHeroSensorDescription(
+        key="grid_import_today", translation_key="grid_import_today",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda d: _all(d.get("energy_day"), "G_L"),
+    ),
+    GreenHeroSensorDescription(
+        key="grid_export_today", translation_key="grid_export_today",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda d: _exported(d.get("energy_day")),
+    ),
+    GreenHeroSensorDescription(
+        key="solar_production_today", translation_key="solar_production_today",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda d: _all(d.get("energy_day"), "P_L", "P_B", "P_G"),
+    ),
+    GreenHeroSensorDescription(
+        key="grid_import_lifetime", translation_key="grid_import_lifetime",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda d: _all(d.get("energy_lifetime"), "G_L"),
+    ),
+    GreenHeroSensorDescription(
+        key="grid_export_lifetime", translation_key="grid_export_lifetime",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda d: _exported(d.get("energy_lifetime")),
+    ),
+    GreenHeroSensorDescription(
+        key="solar_production_lifetime", translation_key="solar_production_lifetime",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda d: _all(d.get("energy_lifetime"), "P_L", "P_B", "P_G"),
+    ),
+    GreenHeroSensorDescription(
+        key="battery_charged_lifetime", translation_key="battery_charged_lifetime",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda d: _all(d.get("energy_lifetime"), "P_B"),
+    ),
+    GreenHeroSensorDescription(
+        key="battery_discharged_lifetime", translation_key="battery_discharged_lifetime",
+        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
+        device_class=SensorDeviceClass.ENERGY,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        value_fn=lambda d: _all(d.get("energy_lifetime"), "B_L", "B_G"),
+    ),
+    # --- export earnings (currency) ---
+    GreenHeroSensorDescription(
+        key="export_earnings_today", translation_key="export_earnings_today",
+        native_unit_of_measurement=CURRENCY,
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        value_fn=lambda d: _exported(d.get("cost_day"), digits=2),
+    ),
+    GreenHeroSensorDescription(
+        key="export_earnings_month", translation_key="export_earnings_month",
+        native_unit_of_measurement=CURRENCY,
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        value_fn=lambda d: _exported(d.get("cost_month"), digits=2),
+    ),
+    GreenHeroSensorDescription(
+        key="export_earnings_year", translation_key="export_earnings_year",
+        native_unit_of_measurement=CURRENCY,
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        value_fn=lambda d: _exported(d.get("cost_year"), digits=2),
     ),
 )
 
