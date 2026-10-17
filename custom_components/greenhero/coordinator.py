@@ -89,11 +89,10 @@ class GreenHeroCoordinator(DataUpdateCoordinator[dict[str, Any]]):
             if merged:
                 data["spot_prices"] = {"prices": merged}
         if self.place_id:
-            # cost (currency) and energy for the usual periods
-            await self._try(data, "cost_day", self.api.overview(self.place_id, "day", "currency"))
+            # cost (currency) and energy. The day overview is skipped: Green Hero
+            # leaves it empty (see REMOVED_SENSORS.md).
             await self._try(data, "cost_month", self.api.overview(self.place_id, "month", "currency"))
             await self._try(data, "cost_year", self.api.overview(self.place_id, "year", "currency"))
-            await self._try(data, "energy_day", self.api.overview(self.place_id, "day", "energy"))
             await self._try(data, "energy_lifetime", self.api.overview(self.place_id, "lifetime", "energy"))
 
         if not data:

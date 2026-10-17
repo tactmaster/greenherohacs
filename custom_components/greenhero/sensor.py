@@ -15,6 +15,7 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE, UnitOfEnergy, UnitOfPower
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
@@ -76,10 +77,6 @@ def _exported(payload: Any, digits: int = 3) -> float | None:
     if "P_G" not in f:
         return None
     return round(f["P_G"] + f.get("B_G", 0.0), digits)
-
-
-def _live(key: str) -> Callable[[dict[str, Any]], Any]:
-    return lambda d: (d.get("battery") or {}).get(key)
 
 
 def _flow_attrs(payload: Any) -> dict[str, Any]:
@@ -170,14 +167,6 @@ SENSORS: tuple[GreenHeroSensorDescription, ...] = (
     ),
     # --- cost (currency) ---
     GreenHeroSensorDescription(
-        key="cost_today", translation_key="cost_today",
-        native_unit_of_measurement=CURRENCY,
-        device_class=SensorDeviceClass.MONETARY,
-        state_class=SensorStateClass.TOTAL,
-        value_fn=lambda d: _grid_cost(d.get("cost_day")),
-        attrs_fn=lambda d: _flow_attrs(d.get("cost_day")),
-    ),
-    GreenHeroSensorDescription(
         key="cost_month", translation_key="cost_month",
         native_unit_of_measurement=CURRENCY,
         device_class=SensorDeviceClass.MONETARY,
@@ -195,14 +184,6 @@ SENSORS: tuple[GreenHeroSensorDescription, ...] = (
     ),
     # --- energy (Energy dashboard compatible) ---
     GreenHeroSensorDescription(
-        key="energy_today", translation_key="energy_today",
-        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda d: _consumption(d.get("energy_day")),
-        attrs_fn=lambda d: _flow_attrs(d.get("energy_day")),
-    ),
-    GreenHeroSensorDescription(
         key="energy_lifetime", translation_key="energy_lifetime",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
         device_class=SensorDeviceClass.ENERGY,
@@ -210,57 +191,7 @@ SENSORS: tuple[GreenHeroSensorDescription, ...] = (
         value_fn=lambda d: _consumption(d.get("energy_lifetime")),
         attrs_fn=lambda d: _flow_attrs(d.get("energy_lifetime")),
     ),
-    # --- live power (battery-status) ---
-    GreenHeroSensorDescription(
-        key="solar_power", translation_key="solar_power",
-        native_unit_of_measurement=UnitOfPower.KILO_WATT,
-        device_class=SensorDeviceClass.POWER,
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=_live("production_power"),
-    ),
-    GreenHeroSensorDescription(
-        key="load_power", translation_key="load_power",
-        native_unit_of_measurement=UnitOfPower.KILO_WATT,
-        device_class=SensorDeviceClass.POWER,
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=_live("load_power"),
-    ),
-    GreenHeroSensorDescription(
-        key="grid_import_power", translation_key="grid_import_power",
-        native_unit_of_measurement=UnitOfPower.KILO_WATT,
-        device_class=SensorDeviceClass.POWER,
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=_live("grid_import_power"),
-    ),
-    GreenHeroSensorDescription(
-        key="grid_export_power", translation_key="grid_export_power",
-        native_unit_of_measurement=UnitOfPower.KILO_WATT,
-        device_class=SensorDeviceClass.POWER,
-        state_class=SensorStateClass.MEASUREMENT,
-        value_fn=_live("grid_export_power"),
-    ),
-    # --- energy flows for the Energy dashboard ---
-    GreenHeroSensorDescription(
-        key="grid_import_today", translation_key="grid_import_today",
-        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda d: _all(d.get("energy_day"), "G_L"),
-    ),
-    GreenHeroSensorDescription(
-        key="grid_export_today", translation_key="grid_export_today",
-        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda d: _exported(d.get("energy_day")),
-    ),
-    GreenHeroSensorDescription(
-        key="solar_production_today", translation_key="solar_production_today",
-        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda d: _all(d.get("energy_day"), "P_L", "P_B", "P_G"),
-    ),
+    # --- grid flows for the Energy dashboard ---
     GreenHeroSensorDescription(
         key="grid_import_lifetime", translation_key="grid_import_lifetime",
         native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
@@ -275,35 +206,7 @@ SENSORS: tuple[GreenHeroSensorDescription, ...] = (
         state_class=SensorStateClass.TOTAL_INCREASING,
         value_fn=lambda d: _exported(d.get("energy_lifetime")),
     ),
-    GreenHeroSensorDescription(
-        key="solar_production_lifetime", translation_key="solar_production_lifetime",
-        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda d: _all(d.get("energy_lifetime"), "P_L", "P_B", "P_G"),
-    ),
-    GreenHeroSensorDescription(
-        key="battery_charged_lifetime", translation_key="battery_charged_lifetime",
-        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda d: _all(d.get("energy_lifetime"), "P_B"),
-    ),
-    GreenHeroSensorDescription(
-        key="battery_discharged_lifetime", translation_key="battery_discharged_lifetime",
-        native_unit_of_measurement=UnitOfEnergy.KILO_WATT_HOUR,
-        device_class=SensorDeviceClass.ENERGY,
-        state_class=SensorStateClass.TOTAL_INCREASING,
-        value_fn=lambda d: _all(d.get("energy_lifetime"), "B_L", "B_G"),
-    ),
     # --- export earnings (currency) ---
-    GreenHeroSensorDescription(
-        key="export_earnings_today", translation_key="export_earnings_today",
-        native_unit_of_measurement=CURRENCY,
-        device_class=SensorDeviceClass.MONETARY,
-        state_class=SensorStateClass.TOTAL,
-        value_fn=lambda d: _exported(d.get("cost_day"), digits=2),
-    ),
     GreenHeroSensorDescription(
         key="export_earnings_month", translation_key="export_earnings_month",
         native_unit_of_measurement=CURRENCY,
@@ -325,6 +228,15 @@ async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     coordinator: GreenHeroCoordinator = entry.runtime_data
+
+    # Drop registry entries for sensors this version no longer provides, so
+    # they don't linger as "unavailable" (see REMOVED_SENSORS.md).
+    current = {f"{entry.entry_id}_{d.key}" for d in SENSORS}
+    registry = er.async_get(hass)
+    for ent in er.async_entries_for_config_entry(registry, entry.entry_id):
+        if ent.domain == "sensor" and ent.unique_id not in current:
+            registry.async_remove(ent.entity_id)
+
     async_add_entities(GreenHeroSensor(coordinator, d) for d in SENSORS)
 
 
