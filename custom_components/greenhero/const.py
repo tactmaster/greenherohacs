@@ -31,13 +31,11 @@ PRICE_UNIT = "SEK/kWh"
 CONF_TRANSFER_FEE = "transfer_fee"  # grid company överföringsavgift
 CONF_ENERGY_TAX = "energy_tax"  # energiskatt
 CONF_FIXED_GRID_FEE = "fixed_grid_fee"  # grid company fast avgift, SEK/month
-CONF_SUPPLIER_MARKUP = "supplier_markup"  # electricity supplier påslag
 CONF_EXPORT_COMPENSATION = "export_compensation"  # nätnytta + supplier bonus
 VAT_RATE = 0.25
 DEFAULT_OPTIONS = {
     CONF_TRANSFER_FEE: 0.0,
     CONF_ENERGY_TAX: 45.0,  # 2026: 36.0 öre + 25% VAT
     CONF_FIXED_GRID_FEE: 0.0,
-    CONF_SUPPLIER_MARKUP: 0.0,
     CONF_EXPORT_COMPENSATION: 0.0,
 }

@@ -44,7 +44,6 @@ from .const import (
     CONF_EXPORT_COMPENSATION,
     CONF_FIXED_GRID_FEE,
     CONF_REFRESH_TOKEN,
-    CONF_SUPPLIER_MARKUP,
     CONF_TRANSFER_FEE,
     DEFAULT_OPTIONS,
     DOMAIN,
@@ -237,7 +236,6 @@ class GreenHeroOptionsFlow(OptionsFlow):
                     (CONF_TRANSFER_FEE, ore),
                     (CONF_ENERGY_TAX, ore),
                     (CONF_FIXED_GRID_FEE, _number("SEK/month", 1, 100000)),
-                    (CONF_SUPPLIER_MARKUP, ore),
                     (CONF_EXPORT_COMPENSATION, ore),
                 )
             }

@@ -1,13 +1,13 @@
 """What grid electricity really costs, from Green Hero data plus tariff options.
 
-Swedish pricing (2026): every imported kWh pays the spot price plus supplier
-markup, the grid company's transfer fee and energy tax, with 25% VAT on all of
-it. An exported kWh earns the spot price plus any grid benefit (nätnytta) or
+Swedish pricing (2026): every imported kWh pays the spot price, the grid
+company's transfer fee and energy tax, with 25% VAT on all of it. Green Hero is
+the supplier and adds no markup on the spot price. An exported kWh earns the spot price plus any grid benefit (nätnytta) or
 supplier bonus; there's no VAT for private sellers and the 60 öre tax credit
 ended on 1 January 2026. Import and export are priced separately, never netted.
 
-Green Hero's import cost already covers the supplier side (spot + markup +
-VAT) but not the grid company's charges, which these helpers add.
+Green Hero's import cost already covers the supplier side (spot + VAT) but
+not the grid company's charges, which these helpers add.
 """
 from __future__ import annotations
 
@@ -20,7 +20,6 @@ from .const import (
     CONF_ENERGY_TAX,
     CONF_EXPORT_COMPENSATION,
     CONF_FIXED_GRID_FEE,
-    CONF_SUPPLIER_MARKUP,
     CONF_TRANSFER_FEE,
     DEFAULT_OPTIONS,
     VAT_RATE,
@@ -63,8 +62,7 @@ def import_price_now(data: dict[str, Any], options: Mapping[str, Any]) -> float 
     spot = prices.current_price(data)
     if spot is None:
         return None
-    supplier = spot * (1 + VAT_RATE) + _opt(options, CONF_SUPPLIER_MARKUP) / ORE_PER_SEK
-    return round(supplier + _grid_per_kwh(options), 4)
+    return round(spot * (1 + VAT_RATE) + _grid_per_kwh(options), 4)
 
 
 def export_price_now(data: dict[str, Any], options: Mapping[str, Any]) -> float | None:

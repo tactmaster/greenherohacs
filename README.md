@@ -35,8 +35,8 @@ It reads your data from the same private API the Green Hero web app uses
 - Grid import lifetime and Grid export lifetime
 
 **Real grid cost** (needs your tariff, see below)
-- Import price now (SEK/kWh): spot × 1.25 VAT + supplier markup + transfer fee
-  + energy tax. What a kWh from the grid costs right now
+- Import price now (SEK/kWh): spot × 1.25 VAT + transfer fee + energy tax.
+  What a kWh from the grid costs right now
 - Export price now (SEK/kWh): spot + any extra paid for exported power
 - Grid fees this month / this year (SEK): imported kWh × (transfer fee +
   energy tax) + fixed grid fee
@@ -65,7 +65,8 @@ and the 60 öre/kWh tax credit for exported power ended on 1 January 2026.
 Using your own solar or battery power is therefore worth the full import price,
 not just the spot price.
 
-Green Hero's cost covers the electricity, not the grid company's charges. Set
+Green Hero is the electricity supplier and adds no markup on the spot price,
+so its cost covers the electricity but not the grid company's charges. Set
 your rates under **Settings → Devices & services → Green Hero → Configure**:
 
 | Setting | Unit | Example (Ellevio, from 1 June 2026) |
@@ -73,7 +74,6 @@ your rates under **Settings → Devices & services → Green Hero → Configure*
 | Grid transfer fee | öre/kWh incl. VAT | 26 |
 | Energy tax | öre/kWh incl. VAT | 45.0 (default, the 2026 rate) |
 | Fixed grid fee | SEK/month | 590 for a 20 A fuse |
-| Electricity supplier markup | öre/kWh incl. VAT | 0 if unsure |
 | Paid extra for exported power | öre/kWh | 0 if none |
 
 Rates are per grid company and change, so check your own price list. Yearly
