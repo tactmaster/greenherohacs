@@ -77,11 +77,48 @@
       },
       "export_earnings_year": {
         "name": "Export earnings this year"
+      },
+      "import_price_now": {
+        "name": "Import price now"
+      },
+      "export_price_now": {
+        "name": "Export price now"
+      },
+      "grid_fees_month": {
+        "name": "Grid fees this month"
+      },
+      "grid_fees_year": {
+        "name": "Grid fees this year"
+      },
+      "net_cost_month": {
+        "name": "Net electricity cost this month"
       }
     },
     "binary_sensor": {
       "cheap_now": {
         "name": "Electricity cheap now"
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Grid and tariff costs",
+        "description": "Rates from your own contracts, so Home Assistant can work out what grid electricity really costs. Per-kWh rates are in öre including VAT, as shown on private-customer price lists.\n\nExample: Ellevio from 1 June 2026 charges a transfer fee of 26 öre/kWh and, for a 20 A fuse, a fixed fee of 590 SEK/month. Check your own grid company's price list.\n\nGreen Hero's import cost already includes the electricity itself; these rates add what the grid company charges.",
+        "data": {
+          "transfer_fee": "Grid transfer fee (öre/kWh)",
+          "energy_tax": "Energy tax (öre/kWh)",
+          "fixed_grid_fee": "Fixed grid fee (SEK/month)",
+          "supplier_markup": "Electricity supplier markup (öre/kWh)",
+          "export_compensation": "Paid extra for exported power (öre/kWh)"
+        },
+        "data_description": {
+          "transfer_fee": "Överföringsavgift from your grid company (Ellevio, Vattenfall, E.ON, ...).",
+          "energy_tax": "Energiskatt. 2026: 45.0 öre incl. VAT (36.0 + 25%). Some northern municipalities pay 33.0.",
+          "fixed_grid_fee": "Fast avgift / abonnemangsavgift for your fuse size. Only used in the monthly and yearly totals.",
+          "supplier_markup": "Påslag on the spot price, for Import price now. Leave at 0 if unsure.",
+          "export_compensation": "Nätnytta from the grid company plus any supplier bonus for sold power. Often a few öre; 0 if none."
+        }
       }
     }
   }

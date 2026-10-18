@@ -15,9 +15,21 @@ from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 import voluptuous as vol
-from homeassistant.config_entries import ConfigEntry, ConfigFlow, ConfigFlowResult
+from homeassistant.config_entries import (
+    ConfigEntry,
+    ConfigFlow,
+    ConfigFlowResult,
+    OptionsFlow,
+)
+from homeassistant.core import callback
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
-from homeassistant.helpers.selector import TextSelector, TextSelectorConfig
+from homeassistant.helpers.selector import (
+    NumberSelector,
+    NumberSelectorConfig,
+    NumberSelectorMode,
+    TextSelector,
+    TextSelectorConfig,
+)
 
 from .auth import (
     AuthError,
@@ -27,7 +39,16 @@ from .auth import (
     generate_pkce,
     generate_state,
 )
-from .const import CONF_REFRESH_TOKEN, DOMAIN
+from .const import (
+    CONF_ENERGY_TAX,
+    CONF_EXPORT_COMPENSATION,
+    CONF_FIXED_GRID_FEE,
+    CONF_REFRESH_TOKEN,
+    CONF_SUPPLIER_MARKUP,
+    CONF_TRANSFER_FEE,
+    DEFAULT_OPTIONS,
+    DOMAIN,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,6 +87,11 @@ def _extract_code(pasted: str) -> tuple[str | None, str | None, str | None]:
 
 class GreenHeroConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> OptionsFlow:
+        return GreenHeroOptionsFlow()
 
     def __init__(self) -> None:
         self._verifier: str | None = None
@@ -182,3 +208,38 @@ class GreenHeroConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({vol.Required(CONF_REFRESH_TOKEN): str}),
             errors=errors,
         )
+
+
+def _number(unit: str, step: float, maximum: float) -> NumberSelector:
+    return NumberSelector(
+        NumberSelectorConfig(
+            min=0, max=maximum, step=step,
+            unit_of_measurement=unit, mode=NumberSelectorMode.BOX,
+        )
+    )
+
+
+class GreenHeroOptionsFlow(OptionsFlow):
+    """Tariff settings, so grid costs work for any grid company."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        if user_input is not None:
+            return self.async_create_entry(data=user_input)
+
+        current = {**DEFAULT_OPTIONS, **self.config_entry.options}
+        ore = _number("öre/kWh", 0.01, 1000)
+        schema = vol.Schema(
+            {
+                vol.Required(k, default=current[k]): sel
+                for k, sel in (
+                    (CONF_TRANSFER_FEE, ore),
+                    (CONF_ENERGY_TAX, ore),
+                    (CONF_FIXED_GRID_FEE, _number("SEK/month", 1, 100000)),
+                    (CONF_SUPPLIER_MARKUP, ore),
+                    (CONF_EXPORT_COMPENSATION, ore),
+                )
+            }
+        )
+        return self.async_show_form(step_id="init", data_schema=schema)

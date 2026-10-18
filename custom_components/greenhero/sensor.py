@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import datetime as dt
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -20,7 +20,7 @@ from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from . import prices
+from . import prices, tariffs
 from .const import CURRENCY, DOMAIN, PRICE_UNIT
 from .coordinator import GreenHeroCoordinator
 
@@ -123,8 +123,13 @@ def _spot_attrs(d: dict) -> dict[str, Any]:
 
 @dataclass(frozen=True, kw_only=True)
 class GreenHeroSensorDescription(SensorEntityDescription):
-    value_fn: Callable[[dict[str, Any]], Any]
+    value_fn: Callable[[dict[str, Any]], Any] | None = None
     attrs_fn: Callable[[dict[str, Any]], dict[str, Any]] | None = None
+    # Tariff sensors also need the entry's options (grid fees etc.).
+    tariff_fn: Callable[[dict[str, Any], Mapping[str, Any]], Any] | None = None
+    tariff_attrs_fn: (
+        Callable[[dict[str, Any], Mapping[str, Any]], dict[str, Any]] | None
+    ) = None
 
 
 SENSORS: tuple[GreenHeroSensorDescription, ...] = (
@@ -221,6 +226,43 @@ SENSORS: tuple[GreenHeroSensorDescription, ...] = (
         state_class=SensorStateClass.TOTAL,
         value_fn=lambda d: _exported(d.get("cost_year"), digits=2),
     ),
+    # --- real grid cost, from the tariff options (see tariffs.py) ---
+    GreenHeroSensorDescription(
+        key="import_price_now", translation_key="import_price_now",
+        native_unit_of_measurement=PRICE_UNIT,
+        state_class=SensorStateClass.MEASUREMENT,
+        tariff_fn=tariffs.import_price_now,
+    ),
+    GreenHeroSensorDescription(
+        key="export_price_now", translation_key="export_price_now",
+        native_unit_of_measurement=PRICE_UNIT,
+        state_class=SensorStateClass.MEASUREMENT,
+        tariff_fn=tariffs.export_price_now,
+    ),
+    GreenHeroSensorDescription(
+        key="grid_fees_month", translation_key="grid_fees_month",
+        native_unit_of_measurement=CURRENCY,
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        tariff_fn=tariffs.grid_fees,
+        tariff_attrs_fn=tariffs.grid_fee_attrs,
+    ),
+    GreenHeroSensorDescription(
+        key="grid_fees_year", translation_key="grid_fees_year",
+        native_unit_of_measurement=CURRENCY,
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        tariff_fn=lambda d, o: tariffs.grid_fees(d, o, year=True),
+        tariff_attrs_fn=lambda d, o: tariffs.grid_fee_attrs(d, o, year=True),
+    ),
+    GreenHeroSensorDescription(
+        key="net_cost_month", translation_key="net_cost_month",
+        native_unit_of_measurement=CURRENCY,
+        device_class=SensorDeviceClass.MONETARY,
+        state_class=SensorStateClass.TOTAL,
+        tariff_fn=tariffs.net_cost_month,
+        tariff_attrs_fn=tariffs.net_cost_attrs,
+    ),
 )
 
 
@@ -258,10 +300,18 @@ class GreenHeroSensor(CoordinatorEntity[GreenHeroCoordinator], SensorEntity):
 
     @property
     def native_value(self) -> Any:
-        return self.entity_description.value_fn(self.coordinator.data)
+        desc = self.entity_description
+        if desc.tariff_fn is not None:
+            return desc.tariff_fn(self.coordinator.data, self.coordinator.entry.options)
+        return desc.value_fn(self.coordinator.data)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
-        if self.entity_description.attrs_fn is None:
+        desc = self.entity_description
+        if desc.tariff_attrs_fn is not None:
+            return desc.tariff_attrs_fn(
+                self.coordinator.data, self.coordinator.entry.options
+            )
+        if desc.attrs_fn is None:
             return None
-        return self.entity_description.attrs_fn(self.coordinator.data)
+        return desc.attrs_fn(self.coordinator.data)

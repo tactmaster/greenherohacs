@@ -34,6 +34,15 @@ It reads your data from the same private API the Green Hero web app uses
 **Energy dashboard** (kWh, `total_increasing`)
 - Grid import lifetime and Grid export lifetime
 
+**Real grid cost** (needs your tariff, see below)
+- Import price now (SEK/kWh): spot × 1.25 VAT + supplier markup + transfer fee
+  + energy tax. What a kWh from the grid costs right now
+- Export price now (SEK/kWh): spot + any extra paid for exported power
+- Grid fees this month / this year (SEK): imported kWh × (transfer fee +
+  energy tax) + fixed grid fee
+- Net electricity cost this month (SEK): Green Hero import cost + grid fees −
+  export earnings
+
 Sensors for live solar/house/grid power, today's figures, solar production and
 battery energy were removed because Green Hero returns no data for them. See
 [REMOVED_SENSORS.md](REMOVED_SENSORS.md) for the evidence and how to restore
@@ -46,6 +55,29 @@ Spot prices come from the API in öre/kWh and are shown in SEK/kWh.
 token and location removed).
 
 Not included on purpose: invoices, account, notifications and weather.
+
+## Grid fees and tariffs
+
+In Sweden every imported kWh pays the grid company's transfer fee and energy
+tax on top of the electricity itself, all with 25% VAT. An exported kWh only
+earns about the spot price (plus a few öre of nätnytta at some grid companies),
+and the 60 öre/kWh tax credit for exported power ended on 1 January 2026.
+Using your own solar or battery power is therefore worth the full import price,
+not just the spot price.
+
+Green Hero's cost covers the electricity, not the grid company's charges. Set
+your rates under **Settings → Devices & services → Green Hero → Configure**:
+
+| Setting | Unit | Example (Ellevio, from 1 June 2026) |
+|---|---|---|
+| Grid transfer fee | öre/kWh incl. VAT | 26 |
+| Energy tax | öre/kWh incl. VAT | 45.0 (default, the 2026 rate) |
+| Fixed grid fee | SEK/month | 590 for a 20 A fuse |
+| Electricity supplier markup | öre/kWh incl. VAT | 0 if unsure |
+| Paid extra for exported power | öre/kWh | 0 if none |
+
+Rates are per grid company and change, so check your own price list. Yearly
+grid fees use today's rates for the whole year.
 
 ## Showing future (day-ahead) prices
 

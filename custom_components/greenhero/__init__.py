@@ -44,6 +44,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: GreenHeroConfigEntry) ->
 
     coordinator.async_add_listener(_persist_token)
 
+    # Tariff sensors read entry.options live; redraw them when options change.
+    # (No reload: this listener also fires on every refresh-token rotation.)
+    async def _options_updated(hass: HomeAssistant, entry: GreenHeroConfigEntry) -> None:
+        coordinator.async_update_listeners()
+
+    entry.async_on_unload(entry.add_update_listener(_options_updated))
+
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
