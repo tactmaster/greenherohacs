@@ -9,3 +9,7 @@ cred
 refresh_token.txt
 *.token
 .env
+
+# Personal invoices and caches - NEVER commit
+in/
+.mypy_cache/

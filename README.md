@@ -36,7 +36,8 @@ It reads your data from the same private API the Green Hero web app uses
 
 **Real grid cost** (needs your tariff, see below)
 - Import price now (SEK/kWh): spot × 1.25 VAT + transfer fee + energy tax.
-  What a kWh from the grid costs right now
+  What a kWh from the grid costs right now, apart from Green Hero's own
+  charges (see [below](#what-green-hero-charges-on-top-of-the-spot-price))
 - Export price now (SEK/kWh): spot + any extra paid for exported power
 - Grid fees this month / this year (SEK): imported kWh × (transfer fee +
   energy tax) + fixed grid fee
@@ -65,9 +66,9 @@ and the 60 öre/kWh tax credit for exported power ended on 1 January 2026.
 Using your own solar or battery power is therefore worth the full import price,
 not just the spot price.
 
-Green Hero is the electricity supplier and adds no markup on the spot price,
-so its cost covers the electricity but not the grid company's charges. Set
-your rates under **Settings → Devices & services → Green Hero → Configure**:
+Green Hero is the electricity supplier, so its import cost covers the
+electricity but not the grid company's charges. Set your rates under
+**Settings → Devices & services → Green Hero → Configure**:
 
 | Setting | Unit | Example (Ellevio, from 1 June 2026) |
 |---|---|---|
@@ -78,6 +79,32 @@ your rates under **Settings → Devices & services → Green Hero → Configure*
 
 Rates are per grid company and change, so check your own price list. Yearly
 grid fees use today's rates for the whole year.
+
+### What Green Hero charges on top of the spot price
+
+Green Hero's invoices add their own charges to the spot price. On invoices
+from October 2025 to September 2026 these were (excl. VAT):
+
+| | Import (consumption) | Export (production) |
+|---|---|---|
+| Per kWh | Variable costs ("Rörliga kostnader", 19.5–20.4 öre, changes monthly) + fixed markup ("Fast påslag", 1.44 öre) ≈ **21.4 öre** | Spot minus a balance fee ("Avgift balansansvar", ~3.4 öre) |
+| Per month | 47.20 SEK monthly fee + 12 SEK Green Balance (74 SEK incl. VAT) | 12 SEK monthly fee (15 SEK incl. VAT) |
+
+The API doesn't expose these rates (only the contract name, e.g. "TimPris -
+Bra Miljöval"), so they can't be read automatically. How that affects the
+sensors:
+
+- **Cost this month / this year** and **Net electricity cost this month**
+  already include the per-kWh charges: Green Hero's import cost estimate covers
+  spot + charges + VAT. It runs a few percent above the invoice and leaves out
+  the monthly fees, so the real bill is about 89 SEK/month higher.
+- **Export earnings** for past months are the invoiced amounts, net of the
+  balance fee and monthly fee. The current month is Green Hero's estimate.
+- **Import price now** leaves out Green Hero's charges, so it reads about
+  27 öre/kWh (21.4 öre + VAT) below the full price. It's still fine for
+  comparing hours or deciding between using and exporting your own power,
+  since the charge is the same every hour.
+- **Export price now** doesn't subtract the ~3.4 öre balance fee.
 
 ## Showing future (day-ahead) prices
 

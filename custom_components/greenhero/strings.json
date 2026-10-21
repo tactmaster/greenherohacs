@@ -104,7 +104,7 @@
     "step": {
       "init": {
         "title": "Grid and tariff costs",
-        "description": "Rates from your own contracts, so Home Assistant can work out what grid electricity really costs. Per-kWh rates are in öre including VAT, as shown on private-customer price lists.\n\nExample: Ellevio from 1 June 2026 charges a transfer fee of 26 öre/kWh and, for a 20 A fuse, a fixed fee of 590 SEK/month. Check your own grid company's price list.\n\nGreen Hero is your electricity supplier and adds no markup, so its import cost covers the electricity itself; these rates add what the grid company charges.",
+        "description": "Rates from your own contracts, so Home Assistant can work out what grid electricity really costs. Per-kWh rates are in öre including VAT, as shown on private-customer price lists.\n\nExample: Ellevio from 1 June 2026 charges a transfer fee of 26 öre/kWh and, for a 20 A fuse, a fixed fee of 590 SEK/month. Check your own grid company's price list.\n\nGreen Hero is your electricity supplier, so its import cost covers the electricity itself; these rates add what the grid company charges.",
         "data": {
           "transfer_fee": "Grid transfer fee (öre/kWh)",
           "energy_tax": "Energy tax (öre/kWh)",

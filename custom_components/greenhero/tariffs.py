@@ -1,13 +1,15 @@
 """What grid electricity really costs, from Green Hero data plus tariff options.
 
 Swedish pricing (2026): every imported kWh pays the spot price, the grid
-company's transfer fee and energy tax, with 25% VAT on all of it. Green Hero is
-the supplier and adds no markup on the spot price. An exported kWh earns the spot price plus any grid benefit (nätnytta) or
-supplier bonus; there's no VAT for private sellers and the 60 öre tax credit
-ended on 1 January 2026. Import and export are priced separately, never netted.
+company's transfer fee and energy tax, with 25% VAT on all of it. An exported
+kWh earns the spot price plus any grid benefit (nätnytta) or supplier bonus;
+there's no VAT for private sellers and the 60 öre tax credit ended on
+1 January 2026. Import and export are priced separately, never netted.
 
-Green Hero's import cost already covers the supplier side (spot + VAT) but
-not the grid company's charges, which these helpers add.
+Green Hero's import cost already covers the supplier side (spot + its own
+charges + VAT) but not the grid company's charges, which these helpers add.
+Import price now leaves out Green Hero's ~21 öre/kWh charges: the API doesn't
+expose them (see README).
 """
 from __future__ import annotations
 
